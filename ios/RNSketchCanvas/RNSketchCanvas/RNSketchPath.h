@@ -1,5 +1,5 @@
 //
-//  RNSketchCanvasData.h
+//  RNSketchPath.h
 //  RNSketchCanvas
 //
 //  Created by terry on 03/08/2017.
@@ -8,20 +8,20 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import "RNSketchPoint.h"
 
-@interface RNSketchData : NSObject
+@interface RNSketchPath : NSObject
 
 @property (nonatomic, readonly) int pathId;
 @property (nonatomic, readonly) CGFloat strokeWidth;
 @property (nonatomic, readonly) UIColor* strokeColor;
-@property (nonatomic, readonly) NSArray<NSValue*> *points;
+@property (nonatomic, readonly) NSArray<RNSketchPoint*> *points;
 
-- (instancetype)initWithId:(int) pathId strokeColor:(UIColor*) strokeColor strokeWidth:(int) strokeWidth points: (NSArray*) points;
 - (instancetype)initWithId:(int) pathId strokeColor:(UIColor*) strokeColor strokeWidth:(int) strokeWidth;
 
-- (CGRect)addPoint:(CGPoint) point;
+- (RNSketchPoint*)addPoint:(CGPoint) point;
 
-- (void)drawLastPointInContext:(CGContextRef)context;
-- (void)drawInContext:(CGContextRef)context;
+- (CGRect)drawLastPointInContext:(CGContextRef)context;
+- (void)drawInContext:(CGContextRef)context pointIndex:(NSUInteger)pointIndex;
 
 @end

@@ -8,7 +8,6 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#import "RNSketchData.h"
 
 CGPoint midPoint (CGPoint p1, CGPoint p2);
 

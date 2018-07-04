@@ -45,10 +45,10 @@ RCT_EXPORT_METHOD(save:(nonnull NSNumber *)reactTag type:(NSString*) type folder
     }];
 }
 
-RCT_EXPORT_METHOD(addPoint:(nonnull NSNumber *)reactTag x: (float)x y: (float)y)
+RCT_EXPORT_METHOD(addPoint:(nonnull NSNumber *)reactTag pathId: (int) pathId x: (float)x y: (float)y)
 {
     [self runCanvas:reactTag block:^(RNSketchCanvas *canvas) {
-        [canvas addPointX:x Y:y];
+        [canvas addPoint:pathId x:x y:y];
     }];
 }
 
@@ -79,10 +79,10 @@ RCT_EXPORT_METHOD(deletePath:(nonnull NSNumber *)reactTag pathId: (int) pathId)
     }];
 }
 
-RCT_EXPORT_METHOD(endPath:(nonnull NSNumber *)reactTag)
+RCT_EXPORT_METHOD(endPath:(nonnull NSNumber *)reactTag pathId: (int) pathId)
 {
     [self runCanvas:reactTag block:^(RNSketchCanvas *canvas) {
-        [canvas endPath];
+        [canvas endPath:pathId];
     }];
 }
 

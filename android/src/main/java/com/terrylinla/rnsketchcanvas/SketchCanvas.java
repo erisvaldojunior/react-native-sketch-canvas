@@ -22,11 +22,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SketchCanvas extends View {
 
-    private ArrayList<SketchData> mPaths = new ArrayList<SketchData>();
-    private SketchData mCurrentPath = null;
+    private Map<Integer, SketchPath> mPathsById = new HashMap<>();
+    private ArrayList<SketchPoint> mPoints = new ArrayList<>();
 
     private ThemedReactContext mContext;
     private boolean mDisableHardwareAccelerated = false;
@@ -67,15 +69,15 @@ public class SketchCanvas extends View {
     }
 
     public void clear() {
-        mPaths.clear();
-        mCurrentPath = null;
+        mPathsById.clear();
+        mPoints.clear();
         mNeedsFullRedraw = true;
         invalidateCanvas(true);
     }
 
     public void newPath(int id, int strokeColor, float strokeWidth) {
-        mCurrentPath = new SketchData(id, strokeColor, strokeWidth);
-        mPaths.add(mCurrentPath);
+        SketchPath path = new SketchPath(id, strokeColor, strokeWidth);
+        mPathsById.put(id, path);
         boolean isErase = strokeColor == Color.TRANSPARENT;
         if (isErase && mDisableHardwareAccelerated == false) {
             mDisableHardwareAccelerated = true;
@@ -84,50 +86,61 @@ public class SketchCanvas extends View {
         invalidateCanvas(true);
     }
 
-    public void addPoint(float x, float y) {
-        Rect updateRect = mCurrentPath.addPoint(new PointF(x, y));
+    public void addPoint(int pathId, float x, float y) {
+        SketchPath path = mPathsById.get(pathId);
+        if (path == null) {
+            return;
+        }
 
-        mCurrentPath.drawLastPoint(mDrawingCanvas);
+        SketchPoint point = path.addPoint(new PointF(x, y));
+        mPoints.add(point);
+
+        Rect updateRect = path.drawLastPoint(mDrawingCanvas);
 
         invalidate(updateRect);
     }
 
     public void addPath(int id, int strokeColor, float strokeWidth, ArrayList<PointF> points) {
-        boolean exist = false;
-        for(SketchData data: mPaths) {
-            if (data.id == id) {
-                exist = true;
-                break;
-            }
+        SketchPath path = mPathsById.get(id);
+        if (path != null) {
+            return;
         }
 
-        if (!exist) {
-            SketchData newPath = new SketchData(id, strokeColor, strokeWidth, points);
-            mPaths.add(newPath);
-            boolean isErase = strokeColor == Color.TRANSPARENT;
-            if (isErase && mDisableHardwareAccelerated == false) {
-                mDisableHardwareAccelerated = true;
-                setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            }
-            newPath.draw(mDrawingCanvas);
-            invalidateCanvas(true);
+        SketchPath newPath = new SketchPath(id, strokeColor, strokeWidth);
+        mPathsById.put(id, newPath);
+
+        for (PointF point: points) {
+            addPoint(id, point.x, point.y);
         }
+
+        boolean isErase = strokeColor == Color.TRANSPARENT;
+        if (isErase && mDisableHardwareAccelerated == false) {
+            mDisableHardwareAccelerated = true;
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        }
+
+        invalidateCanvas(true);
     }
 
     public void deletePath(int id) {
-        int index = -1;
-        for(int i = 0; i<mPaths.size(); i++) {
-            if (mPaths.get(i).id == id) {
-                index = i;
-                break;
-            }
+        SketchPath path = mPathsById.get(id);
+        if (path == null) {
+            return;
         }
 
-        if (index > -1) {
-            mPaths.remove(index);
-            mNeedsFullRedraw = true;
-            invalidateCanvas(true);
+        mPathsById.remove(id);
+
+        // Remove all points with this pathId
+        ArrayList<SketchPoint> newPoints = new ArrayList<>();
+        for (SketchPoint point: mPoints) {
+            if (point.pathId != id) {
+                newPoints.add(point);
+            }
         }
+        mPoints = newPoints;
+
+        mNeedsFullRedraw = true;
+        invalidateCanvas(true);
     }
 
     public void onSaved(boolean success, String path) {
@@ -183,9 +196,7 @@ public class SketchCanvas extends View {
     }
 
     public void end() {
-        if (mCurrentPath != null) {
-            mCurrentPath = null;
-        }
+        // Nothing to do
     }
 
     public String getBase64(String format, boolean transparent) {
@@ -225,8 +236,9 @@ public class SketchCanvas extends View {
 
         if (mNeedsFullRedraw && mDrawingCanvas != null) {
             mDrawingCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.MULTIPLY);
-            for(SketchData path: mPaths) {
-                path.draw(mDrawingCanvas);
+            for(SketchPoint point: mPoints) {
+                SketchPath path = mPathsById.get(point.pathId);
+                path.draw(mDrawingCanvas, point.index);
             }
             mNeedsFullRedraw = false;
         }
@@ -245,7 +257,7 @@ public class SketchCanvas extends View {
     private void invalidateCanvas(boolean shouldDispatchEvent) {
         if (shouldDispatchEvent) {
             WritableMap event = Arguments.createMap();
-            event.putInt("pathsUpdate", mPaths.size());
+            event.putInt("pathsUpdate", mPathsById.size());
             mContext.getJSModule(RCTEventEmitter.class).receiveEvent(
                 getId(),
                 "topChange",

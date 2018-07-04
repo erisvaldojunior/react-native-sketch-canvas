@@ -35,7 +35,6 @@ class SketchCanvas extends React.Component {
     onStrokeEnd: PropTypes.func,
     onSketchSaved: PropTypes.func,
     user: PropTypes.string,
-
     touchEnabled: PropTypes.bool,
     localSourceImagePath: PropTypes.string
   };
@@ -50,7 +49,6 @@ class SketchCanvas extends React.Component {
     onStrokeEnd: () => {},
     onSketchSaved: () => {},
     user: null,
-
     touchEnabled: true,
     localSourceImagePath: null
   };
@@ -58,8 +56,10 @@ class SketchCanvas extends React.Component {
   constructor(props) {
     super(props)
     this._pathsToProcess = []
+    this._pathsById = {}
     this._paths = []
-    this._path = null
+    this._points = []
+    this._currentPath = null
     this._handle = null
     this._screenScale = Platform.OS === 'ios' ? 1 : PixelRatio.get()
     this._offset = { x: 0, y: 0 }
@@ -68,36 +68,99 @@ class SketchCanvas extends React.Component {
   }
 
   clear() {
+    this._pathsById = {}
     this._paths = []
-    this._path = null
+    this._points = []
+    this._currentPath = null
     UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.clear, [])
   }
 
   undo() {
-    let lastId = -1;
-    this._paths.forEach(d => lastId = d.drawer === this.props.user ? d.path.id : lastId)
-    if (lastId >= 0)  this.deletePath(lastId)
-    return lastId
+    const pathData = [...this._paths].reverse().find(d => d.finished === true && d.drawer === this.props.user)
+    if (pathData) { this.deletePath(pathData.path.id) }
+    return pathData && pathData.path.id
+  }
+
+  newPath(strokeColor, strokeWidth) {
+    const path = {
+      id: parseInt(Math.random() * 100000000), color: strokeColor,
+      width: strokeWidth, data: []
+    }
+
+    UIManager.dispatchViewManagerCommand(
+      this._handle,
+      UIManager.RNSketchCanvas.Commands.newPath,
+      [
+        path.id,
+        processColor(path.color),
+        path.width * this._screenScale
+      ]
+    )
+
+    const pathData = { path: path, size: this._size, finished: false, drawer: this.props.user }
+    this._pathsById[path.id] = pathData
+    this._paths.push(pathData)
+
+    return path;
+  }
+
+  addPoint(pathId, x, y) {
+    const pathData = this._pathsById[pathId]
+    if (!pathData) { return };
+
+    UIManager.dispatchViewManagerCommand(
+      this._handle,
+      UIManager.RNSketchCanvas.Commands.addPoint,
+      [
+        pathId,
+        parseFloat(x.toFixed(2) * this._screenScale),
+        parseFloat(y.toFixed(2) * this._screenScale)
+      ]
+    )
+
+    const point = `${parseFloat(x).toFixed(2)},${parseFloat(y).toFixed(2)}`
+    pathData.path.data.push(point)
+    this._points.push([pathId, point])
+  }
+
+  endPath(pathId) {
+    const path = this._pathsById[pathId]
+    if (!path) { return };
+
+    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.endPath, [pathId])
+
+    path.finished = true;
   }
 
   addPath(data) {
     if (this._initialized) {
-      if (this._paths.filter(p => p.path.id === data.path.id).length === 0) this._paths.push(data)
+      const pathId = data.path.id
+      if (this._pathsById[pathId]) { return }
+
       const pathData = data.path.data.map(p => {
         const coor = p.split(',').map(pp => parseFloat(pp).toFixed(2))
         return `${coor[0] * this._screenScale * this._size.width / data.size.width },${coor[1] * this._screenScale * this._size.height / data.size.height }`;
       })
       UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.addPath, [
-        data.path.id, processColor(data.path.color), data.path.width * this._screenScale , pathData
+        pathId, processColor(data.path.color), data.path.width * this._screenScale , pathData
       ])
+
+      this._pathsById[pathId] = data
+      this._paths.push(data)
+      data.path.data.forEach(p => {
+        this._points.push([pathId, p])
+      })
     } else {
-      this._pathsToProcess.filter(p => p.path.id === data.path.id).length === 0 && this._pathsToProcess.push(data)
+      this._pathsToProcess.filter(p => p.path.id === pathId).length === 0 && this._pathsToProcess.push(data)
     }
   }
 
-  deletePath(id) {
-    this._paths = this._paths.filter(p => p.path.id !== id)
-    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.deletePath, [ id ])
+  deletePath(pathId) {
+    if (!this._pathsById[pathId]) { return }
+    this._pathsById[pathId] = undefined
+    this._paths = this._paths.filter(p => p.path.id !== pathId)
+    this._points = this._points.filter(p => p[0] !== pathId)
+    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.deletePath, [ pathId ])
   }
 
   save(imageType, transparent, folder, filename) {
@@ -106,6 +169,14 @@ class SketchCanvas extends React.Component {
 
   getPaths() {
     return this._paths
+  }
+
+  getPoints() {
+    return this._points
+  }
+
+  getSize() {
+    return this._size
   }
 
   getBase64(imageType, transparent, callback) {
@@ -128,49 +199,27 @@ class SketchCanvas extends React.Component {
         if (!this.props.touchEnabled) return
         const e = evt.nativeEvent
         this._offset = { x: e.pageX - e.locationX, y: e.pageY - e.locationY }
-        this._path = {
-          id: parseInt(Math.random() * 100000000), color: this.props.strokeColor,
-          width: this.props.strokeWidth, data: []
-        }
-
-        UIManager.dispatchViewManagerCommand(
-          this._handle,
-          UIManager.RNSketchCanvas.Commands.newPath,
-          [
-            this._path.id,
-            processColor(this._path.color),
-            this._path.width * this._screenScale
-          ]
-        )
-        UIManager.dispatchViewManagerCommand(
-          this._handle,
-          UIManager.RNSketchCanvas.Commands.addPoint,
-          [
-            parseFloat((gestureState.x0 - this._offset.x).toFixed(2) * this._screenScale),
-            parseFloat((gestureState.y0 - this._offset.y).toFixed(2) * this._screenScale)
-          ]
-        )
-        this._path.data.push(`${parseFloat(gestureState.x0 - this._offset.x).toFixed(2)},${parseFloat(gestureState.y0 - this._offset.y).toFixed(2)}`)
-        this.props.onStrokeStart()
+        this._currentPath = this.newPath(this.props.strokeColor, this.props.strokeWidth)
+        this.addPoint(this._currentPath.id, gestureState.x0 - this._offset.x, gestureState.y0 - this._offset.y)
+        this.props.onStrokeStart({ path: this._currentPath, size: this._size, drawer: this.props.user })
       },
       onPanResponderMove: (evt, gestureState) => {
         if (!this.props.touchEnabled) return
-        if (this._path) {
-          UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.addPoint, [
-            parseFloat((gestureState.moveX - this._offset.x).toFixed(2) * this._screenScale),
-            parseFloat((gestureState.moveY - this._offset.y).toFixed(2) * this._screenScale)
-          ])
-          this._path.data.push(`${parseFloat(gestureState.moveX - this._offset.x).toFixed(2)},${parseFloat(gestureState.moveY - this._offset.y).toFixed(2)}`)
-          this.props.onStrokeChanged()
-        }
+        const currentPath = this._currentPath;
+        if (!currentPath) { return }
+
+        this.addPoint(currentPath.id, gestureState.moveX - this._offset.x, gestureState.moveY - this._offset.y)
+        this.props.onStrokeChanged({ path: currentPath, size: this._size, drawer: this.props.user })
+
       },
       onPanResponderRelease: (evt, gestureState) => {
         if (!this.props.touchEnabled) return
-        if (this._path) {
-          this.props.onStrokeEnd({ path: this._path, size: this._size, drawer: this.props.user })
-          this._paths.push({ path: this._path, size: this._size, drawer: this.props.user })
-        }
-        UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.endPath, [])
+        const currentPath = this._currentPath;
+        if (!currentPath) { return }
+
+        this._currentPath = null
+        this.endPath(currentPath.id)
+        this.props.onStrokeEnd({ path: currentPath, size: this._size, drawer: this.props.user })
       },
 
       onShouldBlockNativeResponder: (evt, gestureState) => {

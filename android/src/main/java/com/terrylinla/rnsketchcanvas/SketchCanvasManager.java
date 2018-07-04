@@ -1,29 +1,15 @@
 package com.terrylinla.rnsketchcanvas;
 
-import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
-import android.util.Log;
+import android.graphics.PointF;
 
-import com.facebook.common.logging.FLog;
-import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReadableArray;
-import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.common.ReactConstants;
-import com.facebook.react.common.MapBuilder;
-import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.annotations.ReactProp;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ArrayList;
-import android.graphics.PointF;
 
 import javax.annotation.Nullable;
 
@@ -80,7 +66,7 @@ public class SketchCanvasManager extends SimpleViewManager<SketchCanvas> {
     public void receiveCommand(SketchCanvas view, int commandType, @Nullable ReadableArray args) {
         switch (commandType) {
             case COMMAND_ADD_POINT: {
-                view.addPoint((float)args.getDouble(0), (float)args.getDouble(1));
+                view.addPoint(args.getInt(0), (float)args.getDouble(1), (float)args.getDouble(2));
                 return;
             }
             case COMMAND_NEW_PATH: {

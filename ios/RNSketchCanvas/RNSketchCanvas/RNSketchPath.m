@@ -1,24 +1,24 @@
 //
-//  RNSketchCanvasData.m
+//  RNSketchPath.m
 //  RNSketchCanvas
 //
 //  Created by terry on 03/08/2017.
 //  Copyright © 2017 Terry. All rights reserved.
 //
 
-#import "RNSketchData.h"
+#import "RNSketchPath.h"
 #import "Utility.h"
 
-@interface RNSketchData ()
+@interface RNSketchPath ()
 
 @property (nonatomic, readwrite) int pathId;
 @property (nonatomic, readwrite) CGFloat strokeWidth;
 @property (nonatomic, readwrite) UIColor* strokeColor;
-@property (nonatomic, readwrite) NSMutableArray<NSValue*> *points;
+@property (nonatomic, readwrite) NSMutableArray<RNSketchPoint*> *points;
 
 @end
 
-@implementation RNSketchData
+@implementation RNSketchPath
 
 - (instancetype)initWithId:(int) pathId strokeColor:(UIColor*) strokeColor strokeWidth:(int) strokeWidth {
     self = [super init];
@@ -31,26 +31,19 @@
     return self;
 }
 
-- (instancetype)initWithId:(int) pathId strokeColor:(UIColor*) strokeColor strokeWidth:(int) strokeWidth points: (NSArray*) points {
-    self = [super init];
-    if (self) {
-        _pathId = pathId;
-        _strokeColor = strokeColor;
-        _strokeWidth = strokeWidth;
-        _points = [points mutableCopy];
-    }
-    return self;
+- (RNSketchPoint*)addPoint:(CGPoint) point {
+    RNSketchPoint *p = [[RNSketchPoint alloc] initWithId:_pathId point:point index:_points.count];
+    [_points addObject:p];
+    return p;
 }
 
-- (CGRect)addPoint:(CGPoint) point {
-    [_points addObject: [NSValue valueWithCGPoint: point]];
-
+- (CGRect)updateRectForPoint:(CGPoint)point {
     CGRect updateRect;
 
     NSUInteger pointsCount = _points.count;
     if (pointsCount >= 3) {
-        CGPoint a = _points[pointsCount - 3].CGPointValue;
-        CGPoint b = _points[pointsCount - 2].CGPointValue;
+        CGPoint a = _points[pointsCount - 3].point;
+        CGPoint b = _points[pointsCount - 2].point;
         CGPoint c = point;
         CGPoint prevMid = midPoint(a, b);
         CGPoint currentMid = midPoint(b, c);
@@ -59,7 +52,7 @@
         updateRect = CGRectUnion(updateRect, CGRectMake(b.x, b.y, 0, 0));
         updateRect = CGRectUnion(updateRect, CGRectMake(currentMid.x, currentMid.y, 0, 0));
     } else if (pointsCount >= 2) {
-        CGPoint a = _points[pointsCount - 2].CGPointValue;
+        CGPoint a = _points[pointsCount - 2].point;
         CGPoint b = point;
         CGPoint mid = midPoint(a, b);
 
@@ -74,19 +67,17 @@
     return updateRect;
 }
 
-- (void)drawLastPointInContext:(CGContextRef)context {
+- (CGRect)drawLastPointInContext:(CGContextRef)context {
     NSUInteger pointsCount = _points.count;
     if (pointsCount < 1) {
-        return;
+        return CGRectZero;
     };
 
-    [self drawInContext:context pointIndex:pointsCount - 1];
-}
-- (void)drawInContext:(CGContextRef)context {
-    NSUInteger pointsCount = _points.count;
-    for (NSUInteger i = 0; i < pointsCount; i++) {
-        [self drawInContext:context pointIndex:i];
-    }
+    NSUInteger index = pointsCount - 1;
+    [self drawInContext:context pointIndex:index];
+
+    RNSketchPoint *p = _points[index];
+    return [self updateRectForPoint:p.point];
 }
 
 - (void)drawInContext:(CGContextRef)context pointIndex:(NSUInteger)pointIndex {
@@ -105,9 +96,9 @@
     CGContextBeginPath(context);
 
     if (pointsCount >= 3 && pointIndex >= 2) {
-        CGPoint a = _points[pointIndex - 2].CGPointValue;
-        CGPoint b = _points[pointIndex - 1].CGPointValue;
-        CGPoint c = _points[pointIndex].CGPointValue;
+        CGPoint a = _points[pointIndex - 2].point;
+        CGPoint b = _points[pointIndex - 1].point;
+        CGPoint c = _points[pointIndex].point;
         CGPoint prevMid = midPoint(a, b);
         CGPoint currentMid = midPoint(b, c);
 
@@ -115,8 +106,8 @@
         CGContextMoveToPoint(context, prevMid.x, prevMid.y);
         CGContextAddQuadCurveToPoint(context, b.x, b.y, currentMid.x, currentMid.y);
     } else if (pointsCount >= 2 && pointIndex >= 1) {
-        CGPoint a = _points[pointIndex - 1].CGPointValue;
-        CGPoint b = _points[pointIndex].CGPointValue;
+        CGPoint a = _points[pointIndex - 1].point;
+        CGPoint b = _points[pointIndex].point;
         CGPoint mid = midPoint(a, b);
 
         // Draw a line to the middle of points a and b
@@ -124,7 +115,7 @@
         CGContextMoveToPoint(context, a.x, a.y);
         CGContextAddLineToPoint(context, mid.x, mid.y);
     } else if (pointsCount >= 1) {
-        CGPoint a = _points[pointIndex].CGPointValue;
+        CGPoint a = _points[pointIndex].point;
 
         // Draw a single point
         CGContextMoveToPoint(context, a.x, a.y);
