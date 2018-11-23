@@ -62,7 +62,6 @@ class SketchCanvas extends React.Component {
     this._currentPath = null
     this._handle = null
     this._screenScale = Platform.OS === 'ios' ? 1 : PixelRatio.get()
-    this._offset = { x: 0, y: 0 }
     this._size = { width: 0, height: 0 }
     this._initialized = false
   }
@@ -198,9 +197,8 @@ class SketchCanvas extends React.Component {
       onPanResponderGrant: (evt, gestureState) => {
         if (!this.props.touchEnabled) return
         const e = evt.nativeEvent
-        this._offset = { x: e.pageX - e.locationX, y: e.pageY - e.locationY }
         this._currentPath = this.newPath(this.props.strokeColor, this.props.strokeWidth)
-        this.addPoint(this._currentPath.id, gestureState.x0 - this._offset.x, gestureState.y0 - this._offset.y)
+        this.addPoint(this._currentPath.id, e.locationX, e.locationY)
         this.props.onStrokeStart({ path: this._currentPath, size: this._size, drawer: this.props.user })
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -208,7 +206,8 @@ class SketchCanvas extends React.Component {
         const currentPath = this._currentPath;
         if (!currentPath) { return }
 
-        this.addPoint(currentPath.id, gestureState.moveX - this._offset.x, gestureState.moveY - this._offset.y)
+        const e = evt.nativeEvent
+        this.addPoint(currentPath.id, e.locationX, e.locationY)
         this.props.onStrokeChanged({ path: currentPath, size: this._size, drawer: this.props.user })
 
       },
