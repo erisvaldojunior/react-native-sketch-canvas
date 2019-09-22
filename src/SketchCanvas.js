@@ -132,8 +132,8 @@ class SketchCanvas extends React.Component {
   }
 
   addPath(data) {
+    const pathId = data.path.id
     if (this._initialized) {
-      const pathId = data.path.id
       if (this._pathsById[pathId]) { return }
 
       const pathData = data.path.data.map(p => {
