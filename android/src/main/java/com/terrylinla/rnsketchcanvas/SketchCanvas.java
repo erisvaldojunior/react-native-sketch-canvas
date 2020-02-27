@@ -81,7 +81,8 @@ public class SketchCanvas extends View {
         boolean isErase = strokeColor == Color.TRANSPARENT;
         if (isErase && mDisableHardwareAccelerated == false) {
             mDisableHardwareAccelerated = true;
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            //setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            //https://developer.android.com/guide/topics/graphics/hardware-accel This says to use it but all of a sudden it stopped working in RN 0.6
         }
         invalidateCanvas(true);
     }
@@ -116,7 +117,8 @@ public class SketchCanvas extends View {
         boolean isErase = strokeColor == Color.TRANSPARENT;
         if (isErase && mDisableHardwareAccelerated == false) {
             mDisableHardwareAccelerated = true;
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+           // setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+                  //https://developer.android.com/guide/topics/graphics/hardware-accel This says to use it but all of a sudden it stopped working in RN 0.6
         }
 
         invalidateCanvas(true);
