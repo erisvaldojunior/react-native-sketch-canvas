@@ -43,11 +43,11 @@ class SketchCanvas extends React.Component {
     style: null,
     strokeColor: '#000000',
     strokeWidth: 3,
-    onPathsChange: () => { },
-    onStrokeStart: () => { },
-    onStrokeChanged: () => { },
-    onStrokeEnd: () => { },
-    onSketchSaved: () => { },
+    onPathsChange: () => {},
+    onStrokeStart: () => {},
+    onStrokeChanged: () => {},
+    onStrokeEnd: () => {},
+    onSketchSaved: () => {},
     user: null,
     touchEnabled: true,
     localSourceImagePath: null
@@ -138,10 +138,10 @@ class SketchCanvas extends React.Component {
 
       const pathData = data.path.data.map(p => {
         const coor = p.split(',').map(pp => parseFloat(pp).toFixed(2))
-        return `${coor[0] * this._screenScale * this._size.width / data.size.width},${coor[1] * this._screenScale * this._size.height / data.size.height}`;
+        return `${coor[0] * this._screenScale * this._size.width / data.size.width },${coor[1] * this._screenScale * this._size.height / data.size.height }`;
       })
       UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.addPath, [
-        pathId, processColor(data.path.color), data.path.width * this._screenScale, pathData
+        pathId, processColor(data.path.color), data.path.width * this._screenScale , pathData
       ])
 
       this._pathsById[pathId] = data
@@ -159,11 +159,11 @@ class SketchCanvas extends React.Component {
     this._pathsById[pathId] = undefined
     this._paths = this._paths.filter(p => p.path.id !== pathId)
     this._points = this._points.filter(p => p[0] !== pathId)
-    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.deletePath, [pathId])
+    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.deletePath, [ pathId ])
   }
 
   save(imageType, transparent, folder, filename) {
-    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.save, [imageType, folder, filename, transparent])
+    UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.save, [ imageType, folder, filename, transparent ])
   }
 
   getPaths() {
@@ -220,14 +220,7 @@ class SketchCanvas extends React.Component {
         this.endPath(currentPath.id)
         this.props.onStrokeEnd({ path: currentPath, size: this._size, drawer: this.props.user })
       },
-      onPanResponderTerminate: (evt, gestureState) => {
-        if (!this.props.touchEnabled) return;
-        if (this._path) {
-          this.props.onStrokeEnd({ path: this._path, size: this._size, drawer: this.props.user });
-          this._paths.push({ path: this._path, size: this._size, drawer: this.props.user });
-        }
-        UIManager.dispatchViewManagerCommand(this._handle, UIManager.RNSketchCanvas.Commands.endPath, []);
-      },
+
       onShouldBlockNativeResponder: (evt, gestureState) => {
         return true;
       },
@@ -242,7 +235,7 @@ class SketchCanvas extends React.Component {
         }}
         style={this.props.style}
         onLayout={e => {
-          this._size = { width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height }
+          this._size={ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height }
           this._initialized = true
           this._pathsToProcess.length > 0 && this._pathsToProcess.forEach(p => this.addPath(p))
         }}
@@ -252,7 +245,7 @@ class SketchCanvas extends React.Component {
             this.props.onPathsChange(e.nativeEvent.pathsUpdate)
           } else if (e.nativeEvent.hasOwnProperty('success') && e.nativeEvent.hasOwnProperty('path')) {
             this.props.onSketchSaved(e.nativeEvent.success, e.nativeEvent.path)
-          } else if (e.nativeEvent.hasOwnProperty('success')) {
+          }else if (e.nativeEvent.hasOwnProperty('success')) {
             this.props.onSketchSaved(e.nativeEvent.success)
           }
         }}
